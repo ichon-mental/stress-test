@@ -1,12 +1,587 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Updated Index</title>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>나의 스트레스는? - 전문 스트레스 검사</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['"Pretendard Variable"', 'Pretendard', '-apple-system','BlinkMacSystemFont','"Segoe UI"','Roboto','Arial','sans-serif'] },
+          colors: {
+            apple: {
+              black:'#000000', surface:'#1C1C1E', border:'#2C2C2E',
+              blue:'#0A84FF', green:'#30D158', orange:'#FF9F0A',
+              red:'#FF453A', gray:'#8E8E93', purple:'#BF5AF2'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background:#000; margin:0; padding:0; color:#fff;
+      -webkit-font-smoothing:antialiased;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+      overflow: hidden;
+    }
+    @keyframes fade-up {
+      from{opacity:0;transform:translateY(24px)}
+      to{opacity:1;transform:translateY(0)}
+    }
+    @keyframes slide-in {
+      from{opacity:0;transform:translateX(30px)}
+      to{opacity:1;transform:translateX(0)}
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px) rotate(-2deg); }
+      75% { transform: translateX(5px) rotate(2deg); }
+    }
+    @keyframes breathe {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.8; }
+    }
+    @keyframes pulse-red {
+      0% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0.4); }
+      70% { box-shadow: 0 0 0 15px rgba(255, 69, 58, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0); }
+    }
+    @keyframes twist {
+      0% { transform: rotate(0deg); }
+      25% { transform: rotate(5deg); }
+      75% { transform: rotate(-5deg); }
+      100% { transform: rotate(0deg); }
+    }
+
+    .fade-up { animation:fade-up 0.55s cubic-bezier(0.16,1,0.3,1) forwards; }
+    .slide-in { animation:slide-in 0.4s cubic-bezier(0.16,1,0.3,1) forwards; }
+    .animate-float { animation: float 3s ease-in-out infinite; }
+    .animate-shake { animation: shake 0.5s ease-in-out infinite; }
+    .animate-breathe { animation: breathe 4s ease-in-out infinite; }
+    .animate-twist { animation: twist 2s ease-in-out infinite; }
+    .pulse-red { animation: pulse-red 2s infinite; }
+    
+    .tap:active{transform:scale(0.97);transition:transform .1s ease;}
+    .hide-scroll::-webkit-scrollbar{display:none}
+    .hide-scroll{-ms-overflow-style:none;scrollbar-width:none}
+
+    .glass {
+      background: rgba(28, 28, 30, 0.7);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+  </style>
 </head>
 <body>
-    <h1>Welcome to the Updated Page</h1>
-    <p>This is the updated content for the index.html file.</p>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    const BASE = "https://raw.githubusercontent.com/googlefonts/noto-emoji/main/svg/";
+    const questions = [
+      { id:1, icon:"🌪️", anim: "animate-shake", img: BASE + "emoji_u1f4a5.svg", text:"긴장을 풀고 편안하게 쉬기가 힘들었다.", hint:"지난 일주일간 몸과 마음이 계속 굳어있는 느낌" },
+      { id:2, icon:"💥", anim: "animate-twist", img: BASE + "emoji_u1f92f.svg", text:"작은 일에도 아주 예민해지거나 크게 반응하는 편였다.", hint:"지난 일주일간 평소라면 넘길 일에도 쉽게 반응함" },
+      { id:3, icon:"🔋", anim: "animate-breathe", img: BASE + "emoji_u1f50b.svg", text:"신경을 너무 많이 써서 에너지가 완전히 바닥난 것 같았다.", hint:"지난 일주일간 더 이상 아무것도 할 수 없을 만큼 지침" },
+      { id:4, icon:"🌀", anim: "animate-shake", img: BASE + "emoji_u1f635.svg", text:"마음이 쉽게 흔들리거나 계속 안절부절못했다.", hint:"지난 일주일간 불안감 때문에 한 가지 일에 집중하기 어려움" },
+      { id:5, icon:"🪫", anim: "animate-twist", img: BASE + "emoji_u1f62b.svg", text:"상황과 장소에 상관없이 마음 편하게 쉬기가 어려웠다.", hint:"지난 일주일간 쉬는 동안에도 머릿속에 걱정이 가득함" },
+      { id:6, icon:"💢", anim: "animate-float", img: BASE + "emoji_u1f4a2.svg", text:"내가 하고 있는 일을 중간에 방해받으면 참기가 몹시 힘들었다.", hint:"지난 일주일간 누군가 끼어들면 순간적으로 욱하게 됨" },
+      { id:7, icon:"😡", anim: "animate-shake", img: BASE + "emoji_u1f621.svg", text:"내 자신이 평소보다 꽤 예민해지거나 신경질적이라고 자주 느꼈다.", hint:"지난 일주일간 말 한마디에도 날카롭게 반응하는 상태" }
+    ];
+
+    const ageGroups = [
+      { id: 'teen', label: '10대', icon: '🎒', desc: '학업 및 또래 관계' },
+      { id: 'young', label: '20~30대', icon: '💻', desc: '취업 및 사회 생활' },
+      { id: 'middle', label: '40~65세', icon: '🏠', desc: '가족 및 은퇴 준비' },
+      { id: 'senior', label: '65세 이상', icon: '🌳', desc: '건강 및 노후 생활' }
+    ];
+
+    const options = [
+      { v:0, face:"😌", label:"전혀\n안 됨", desc:"(0일)" },
+      { v:1, face:"🙂", label:"가끔\n그럼", desc:"(1~2일)" },
+      { v:2, face:"😟", label:"자주\n그럼", desc:"(3~4일)" },
+      { v:3, face:"😫", label:"거의\n항상", desc:"(5~7일)" },
+    ];
+
+    const getPrescription = (level, age) => {
+      const db = {
+        very_low: {
+          teen: { title: "최상위 마음 밸런스", rx: ["자신만의 스트레스 관리법 후배들에게 공유하기", "명상과 일기로 긍정적 에너지 기록해두기", "새로운 학업적 도전 시작해보기"] },
+          young: { title: "완벽한 워라밸의 표본", rx: ["현재의 안정감을 바탕으로 장기 커리어 플랜 짜기", "주변 동료들에게 긍정적인 영향력 전파하기", "운동 강도를 높여 신체적 한계 도전해보기"] },
+          middle: { title: "인생의 황금기 향유", rx: ["가족과 함께하는 봉사활동 제안하기", "전문 분야의 멘토링이나 지식 나눔 시작하기", "은퇴 후의 꿈을 구체적으로 설계하기"] },
+          senior: { title: "존경받는 지혜의 어르신", rx: ["건강한 생활 습관을 가족의 가업으로 전수하기", "지역 사회 리더로서 작은 역할 맡아보기", "매일 감사 일기 3가지씩 기록하기"] }
+        },
+        low: {
+          teen: { title: "안정적인 성장 가도", rx: ["자기 계발서보다는 가벼운 소설 읽기", "주말 중 하루는 완전히 학업에서 벗어나기", "좋아하는 연예인이나 취미에 몰입해보기"] },
+          young: { title: "건강한 사회인으로서의 첫걸음", rx: ["가까운 곳으로 무계획 여행 떠나보기", "새로운 취미 동호회 가입해보기", "불필요한 인간관계 정리하고 나에게 집중하기"] },
+          middle: { title: "조화로운 삶의 운영자", rx: ["반려동물이나 식물 가꾸며 정서적 교감하기", "부부 대화의 시간을 주 1회 이상 갖기", "옛 친구들과 만나 추억 공유하기"] },
+          senior: { title: "평온하고 여유로운 일상", rx: ["전통 시장 나들이나 공원 산책 즐기기", "자녀들에게 듣기 좋은 칭찬 한마디 건네기", "가벼운 두뇌 게임(바둑, 장기 등) 즐기기"] }
+        },
+        moderate: {
+          teen: { title: "주의! 마음의 환기가 필요해요", rx: ["공부방 조명을 눈이 편안한 색으로 바꾸기", "부모님과 함께 맛집 탐방하며 대화하기", "SNS 사용 시간을 절반으로 줄여보기"] },
+          young: { title: "잠시 멈춤이 필요한 신호", rx: ["오늘 저녁은 스마트폰을 끄고 조용히 명상하기", "내가 정말 하고 싶은 일 리스트 작성해보기", "1박 2일 정도 자연 속에서 캠핑하기"] },
+          middle: { title: "중년의 무게, 나누면 가벼워집니다", rx: ["등산이나 수영 등 유산소 운동 시작하기", "나만의 아지트나 비밀 공간 만들기", "과거의 성취를 되돌아보며 자존감 회복하기"] },
+          senior: { title: "다시 찾는 생활의 활력", rx: ["노인 복지관의 취미 프로그램 신청하기", "가까운 병원에서 영양 상태 체크하기", "매일 아침 스트레칭으로 몸 깨우기"] }
+        },
+        high: {
+          teen: { title: "위험! 전문가의 도움이 큰 힘이 됩니다", rx: ["상담 센터나 보건소의 청소년 프로그램 방문", "가족에게 현재의 답답함을 구체적으로 표현", "충분한 수면과 균형 잡힌 식단 우선시하기"] },
+          young: { title: "위험! 번아웃 직전의 상태입니다", rx: ["연차나 휴가를 사용하여 환경을 완전히 바꾸기", "심리 상담사와의 대화를 통해 감정 해소", "카페인과 알코올 섭취 금지 및 수면 조절"] },
+          middle: { title: "위기! 어깨의 짐을 잠시 내려놓으세요", rx: ["이천시정신건강복지센터 방문 상담 예약", "일주일간 모든 모임과 책임에서 벗어나기", "숲길 걷기 등 자연 치유 프로그램 참여"] },
+          senior: { title: "집중! 마음 건강을 최우선으로 돌보세요", rx: ["노인상담전화(1588-7128)를 통해 마음의 답답함 털어놓기", "매일 전화로 안부를 나눌 수 있는 친구 만들기", "정기적인 우울증 선별 검사 받아보기"] }
+        },
+        high_danger: {
+          teen: { title: "긴급! 혼자 고민하지 마세요", rx: ["언제든 나를 도와줄 상담전화(1577-0199) 이용하기", "학교 상담 교사님께 나의 힘든 마음 털어놓기", "잠시 학업 부담을 내려놓고 충분한 휴식 취하기"] },
+          young: { title: "긴급! 당신의 생명보다 소중한 건 없습니다", rx: ["가장 신뢰하는 지인 한 명에게 즉시 연락", "주변 정신건강의학과 전문의 상담 예약", "직장 상사나 가족에게 공식적인 휴식 요청"] },
+          middle: { title: "절대적 위기! 함께 극복할 수 있습니다", rx: ["즉시 031-637-2330으로 전화하여 도움 요청", "가족과 함께 병원을 방문하여 심층 검사", "과거의 트라우마나 스트레스 요인 제거"] },
+          senior: { title: "절대적 위기! 따뜻한 관심이 필요합니다", rx: ["보건지소 또는 복지 센터 긴급 방문", "자녀나 가까운 지인에게 현재 상태 공유", "전문적인 약물 치료나 심리 치료 병행"] }
+        }
+      };
+      
+      const base = {
+        very_low: { emoji: "💎", color: "text-apple-blue", style: "border-apple-blue/40 bg-apple-blue/10 text-apple-blue", badge: "최상 안정", desc: "마치 거울 같은 평온한 마음 상태입니다. 이 에너지를 원동력으로 더 큰 꿈을 향해 나아가보세요." },
+        low: { emoji: "🧘", color: "text-apple-green", style: "border-apple-green/40 bg-apple-green/10 text-apple-green", badge: "안정 단계", desc: "현재 활력이 넘치고 안정적인 상태입니다. 이 에너지를 나뿐만 아니라 주변인들에게도 나누어 보세요." },
+        moderate: { emoji: "🌤️", color: "text-apple-orange", style: "border-apple-orange/40 bg-apple-orange/10 text-apple-orange", badge: "주의 단계", desc: "마음의 경고등에 불이 들어왔습니다. 더 큰 소진이 오기 전에 나만의 휴식 공간으로 들어가 보세요." },
+        high: { emoji: "🆘", color: "text-apple-red", style: "border-apple-red/40 bg-apple-red/10 text-apple-red", badge: "위험 단계", desc: "폭풍우 속에 서 있는 듯한 위태로운 상태입니다. 당신의 짐을 함께 들어줄 전문가의 손길이 꼭 필요합니다." },
+        high_danger: { emoji: "🚨", color: "text-apple-red", style: "border-apple-red/40 bg-apple-red/20 text-apple-red pulse-red", badge: "고위험군", desc: "극심한 스트레스 상황에 노출되어 있습니다. 지금은 자책보다 전문적인 개입이 가장 시급한 때입니다." }
+      };
+
+      return { ...base[level], ...db[level][age] };
+    };
+
+    const App = () => {
+      const [view, setView] = useState('start'); // start, age, quiz, result, admin
+      const [age, setAge] = useState(null);
+      const [step, setStep] = useState(0); 
+      const [answers, setAnswers] = useState({});
+      const [result, setResult] = useState(null);
+      const [contact, setContact] = useState('');
+      const [contactName, setContactName] = useState('');
+      const [contactAge, setContactAge] = useState('');
+      const [contactSubmitted, setContactSubmitted] = useState(false);
+      const [consent, setConsent] = useState(false);
+      const adminClicks = useRef(0);
+
+      const answered = Object.keys(answers).length;
+      const total = questions.length;
+      const isLast = step === total - 1;
+
+      const saveStats = (level, ageGroup) => {
+        const stats = JSON.parse(localStorage.getItem('stress_stats') || '{"total":0, "levels":{}, "ages":{}, "daily":{}, "contacts":[]}');
+        const today = new Date().toISOString().split('T')[0];
+        
+        stats.total++;
+        stats.levels[level] = (stats.levels[level] || 0) + 1;
+        stats.ages[ageGroup] = (stats.ages[ageGroup] || 0) + 1;
+        stats.daily[today] = (stats.daily[today] || 0) + 1;
+        localStorage.setItem('stress_stats', JSON.stringify(stats));
+      };
+
+      const handleContactSubmit = () => {
+        if (!consent) return alert('개인정보 수집 및 이용에 동의해주세요.');
+        if (!contactName || !contactAge) return alert('성함과 나이를 모두 입력해주세요.');
+        if (!contact || contact.length < 10) return alert('정확한 연락처를 입력해주세요.');
+        const stats = JSON.parse(localStorage.getItem('stress_stats') || '{"total":0, "levels":{}, "ages":{}, "daily":{}, "contacts":[]}');
+        const today = new Date().toISOString().split('T')[0];
+        stats.contacts = stats.contacts || [];
+        stats.contacts.push({ 
+          date: today, name: contactName, ageInForm: contactAge, phone: contact, 
+          level: result.level, ageGroup: ageGroups.find(g=>g.id===age).label, score: result.score 
+        });
+        localStorage.setItem('stress_stats', JSON.stringify(stats));
+        setContactSubmitted(true);
+      };
+
+      const resetAdminStats = () => {
+        if (confirm('모든 누적 통계 데이터 및 연락처 기록을 영구적으로 삭제하시겠습니까?')) {
+          localStorage.setItem('stress_stats', '{"total":0, "levels":{}, "ages":{}, "daily":{}, "contacts":[]}');
+          setView('start');
+          alert('초기화 되었습니다.');
+        }
+      };
+
+      const handlePick = (qId, val) => {
+        setAnswers(p => ({...p, [qId]: val}));
+        if (!isLast) {
+          setTimeout(() => setStep(p => p + 1), 350);
+        }
+      };
+
+      const calculate = () => {
+        // 모든 문항이 답변되었는지 확인
+        const missingIdx = questions.findIndex(q => answers[q.id] === undefined);
+        if (missingIdx !== -1) {
+          alert('아직 답변하지 않은 문항이 있습니다. 해당 문항으로 이동합니다.');
+          setStep(missingIdx);
+          return;
+        }
+
+        let score = 0;
+        questions.forEach(q => {
+          const raw = answers[q.id] || 0;
+          score += raw; // DASS-21 Stress doesn't require reverse scoring
+        });
+        const level = score <= 7 ? 'very_low' : score <= 9 ? 'low' : score <= 12 ? 'moderate' : score <= 16 ? 'high' : 'high_danger';
+        saveStats(level, age);
+        setResult({ score, level });
+        setView('result');
+      };
+
+      const reset = () => { 
+        setAnswers({}); setResult(null); setStep(0); setAge(null); 
+        setContact(''); setContactName(''); setContactAge(''); 
+        setContactSubmitted(false); setConsent(false); setView('start'); 
+      };
+
+      const handleAdminAccess = () => {
+        adminClicks.current += 1;
+        if (adminClicks.current >= 5) {
+          setView('admin');
+          adminClicks.current = 0;
+        }
+        // 리셋 타이머 추가 (빨리 누르지 않으면 초기화)
+        setTimeout(() => { adminClicks.current = 0; }, 3000);
+      };
+
+      // ── 시작 화면 ──
+      if (view === 'start') {
+        return (
+          <div className="h-[100dvh] w-full bg-apple-black flex flex-col justify-center px-6 overflow-y-auto py-10">
+            <div className="fade-up w-full max-w-sm text-center">
+              <button 
+                onClick={handleAdminAccess} 
+                className="text-7xl mb-6 animate-breathe inline-block tap border-none outline-none bg-transparent"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
+                🧠
+              </button>
+              <h1 className="text-3xl font-bold mb-3 tracking-tight">나의 스트레스는?</h1>
+              <p className="text-white/60 text-xs mb-1 px-4 leading-relaxed font-medium">본 테스트는 전 세계적으로 널리 쓰이는 DASS-21 심리 척도를 기반으로 제작되었습니다.</p>
+              <p className="text-white/60 text-[11px] mb-8 px-4 leading-relaxed tracking-wide">14세이상 또는 성인에게 권장되며, 의학적 진단을 대신할수 없습니다.</p>
+              
+              <div className="bg-apple-surface/50 border border-apple-border rounded-2xl p-4 mb-8 text-left">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-apple-blue font-bold text-xs uppercase tracking-widest">개인정보 보호됨</span>
+                  <div className="h-1 w-1 rounded-full bg-apple-green animate-pulse"></div>
+                </div>
+                <p className="text-[11px] text-apple-gray">답변은 서버에 저장되지 않으며, 익명성이 보장됩니다.</p>
+              </div>
+
+              <button onClick={() => setView('age')}
+                className="tap w-full py-4 rounded-2xl bg-apple-blue text-white font-bold shadow-2xl flex items-center justify-center gap-2">
+                진단 시작하기 
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </button>
+            </div>
+          </div>
+        );
+      }
+
+      // ── 연령 선택 화면 ──
+      if (view === 'age') {
+        return (
+          <div className="h-[100dvh] w-full bg-apple-black flex flex-col justify-center px-6 overflow-y-auto py-10">
+            <div className="fade-up w-full max-w-sm">
+              <h2 className="text-2xl font-bold mb-2 text-center">연령대를 선택해주세요</h2>
+              <p className="text-sm text-apple-gray mb-8 text-center px-4">선택하신 연령대에 맞춤화된 전문 솔루션이 처방됩니다.</p>
+              <div className="grid grid-cols-1 gap-3">
+                {ageGroups.map(g => (
+                  <button key={g.id} onClick={() => { setAge(g.id); setView('quiz'); }}
+                    className="tap bg-apple-surface border border-apple-border p-4 rounded-2xl flex items-center gap-4 hover:border-apple-blue/50 transition-all">
+                    <span className="text-3xl">{g.icon}</span>
+                    <div className="text-left">
+                      <p className="font-bold text-base">{g.label}</p>
+                      <p className="text-[11px] text-apple-gray">{g.desc}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => setView('start')} className="w-full text-apple-gray text-xs mt-8 opacity-50 underline">돌아가기</button>
+            </div>
+          </div>
+        );
+      }
+
+      // ── 관리자 화면 ──
+      if (view === 'admin') {
+        const statsStr = localStorage.getItem('stress_stats');
+        const defaultStats = { total: 0, levels: {}, ages: {}, daily: {}, contacts: [] };
+        const stats = statsStr ? { ...defaultStats, ...JSON.parse(statsStr) } : defaultStats;
+        const levelMap = { 'very_low': '최상 안정', 'low': '안정 단계', 'moderate': '주의 단계', 'high': '위험 단계', 'high_danger': '고위험군' };
+        
+        return (
+          <div className="min-h-screen bg-apple-black flex items-center justify-center p-6 hide-scroll overflow-y-auto">
+            <div className="fade-up w-full max-w-sm glass border border-white/10 rounded-[40px] p-8 my-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h1 className="text-xl font-bold flex items-center gap-2">
+                  <span className="p-2 bg-white/10 rounded-lg">📊</span> 관리 통계
+                </h1>
+                <button onClick={resetAdminStats} className="text-[10px] bg-apple-red/20 text-apple-red px-3 py-1.5 rounded-full font-bold">초기화</button>
+              </div>
+              
+              <div className="space-y-6">
+                <div className="bg-white/5 p-4 rounded-2xl flex justify-between items-center">
+                  <div>
+                    <p className="text-[10px] text-apple-gray mb-1">총 누적 검사 수</p>
+                    <p className="text-3xl font-black">{stats.total}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-apple-gray mb-1">오늘 진행 건</p>
+                    <p className="text-xl font-bold text-apple-blue">{stats.daily[new Date().toISOString().split('T')[0]] || 0}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-[10px] text-apple-gray mb-3 bg-white/5 p-2 rounded-lg text-center">결과 단계별 분포</p>
+                  <div className="space-y-2">
+                    {['very_low', 'low', 'moderate', 'high', 'high_danger'].map(l => (
+                      <div key={l} className="flex items-center gap-3">
+                        <div className={`w-2 h-2 rounded-full ${l==='very_low'?'bg-apple-blue':l==='low'?'bg-apple-green':l==='moderate'?'bg-apple-orange':'bg-apple-red'}`}></div>
+                        <span className="text-xs flex-1">{levelMap[l]}</span>
+                        <span className="text-xs font-bold">{stats.levels[l] || 0}건</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-[10px] text-apple-gray mb-3 bg-white/5 p-2 rounded-lg text-center">연령대별 분포</p>
+                  <div className="space-y-2">
+                    {ageGroups.map(g => (
+                      <div key={g.id} className="flex items-center gap-3">
+                        <span className="text-xs flex-1">{g.label}</span>
+                        <span className="text-xs font-bold">{stats.ages[g.id] || 0}건</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {stats.contacts && stats.contacts.length > 0 && (
+                  <div>
+                    <p className="text-[10px] text-apple-orange mb-3 bg-apple-orange/10 p-2 rounded-lg text-center border border-apple-orange/20">상담 신청 명단 ({stats.contacts.length}명)</p>
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1 hide-scroll">
+                      {stats.contacts.slice().reverse().map((c, idx) => (
+                        <div key={idx} className="bg-white/5 p-3 rounded-xl border border-white/5">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-xs font-bold">{c.name || '알 수 없음'} ({c.ageInForm ? c.ageInForm+'세' : '나이 미상'}) - {c.phone}</span>
+                            <span className="text-[9px] opacity-50">{c.date}</span>
+                          </div>
+                          <div className="text-[10px] opacity-70 flex items-center gap-2">
+                            <span>{c.ageGroup}</span>
+                            <span>•</span>
+                            <span className={c.level.includes('high') ? 'text-apple-red' : 'text-apple-orange'}>{levelMap[c.level]} ({c.score}점)</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <button onClick={() => setView('start')} className="tap w-full mt-8 py-3 bg-white text-black rounded-xl font-bold text-sm">대시보드 닫기</button>
+            </div>
+          </div>
+        );
+      }
+
+      // ── 결과 화면 ──
+      if (view === 'result') {
+        const rx = getPrescription(result.level, age);
+        const isAdminNote = (result.level === 'high' || result.level === 'high_danger');
+        
+        const handleSaveImage = () => {
+          const target = document.getElementById('capture-area');
+          if (!target || !window.html2canvas) return;
+          const hideEls = target.querySelectorAll('.no-capture');
+          hideEls.forEach(el => el.style.display = 'none');
+          window.html2canvas(target, { backgroundColor: '#1C1C1E', scale: 2 }).then(canvas => {
+            hideEls.forEach(el => el.style.display = '');
+            const link = document.createElement('a');
+            link.download = `마음건강진단_결과_${result.score}점.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+          });
+        };
+
+        return (
+          <div className="h-[100dvh] w-full bg-apple-black px-4 py-8 overflow-y-auto block overscroll-contain">
+            <div id="capture-area" className={`mx-auto fade-up w-full max-w-sm border rounded-[40px] p-8 glass shadow-2xl relative overflow-hidden ${rx.style}`}>
+              <div className="flex items-center justify-between mb-6">
+                <span className="text-5xl">{rx.emoji}</span>
+                <span className="text-[10px] bg-white/10 px-3 py-1 rounded-full font-bold tracking-tighter uppercase opacity-80">{rx.badge}</span>
+              </div>
+              <h2 className="text-2xl font-bold mb-2 leading-tight">{rx.title}</h2>
+              <div className={`text-6xl font-black mb-4 tracking-tighter ${rx.color}`}>{result.score}<span className="text-lg font-medium opacity-40 ml-1">점</span></div>
+              <p className="text-sm opacity-90 mb-6 leading-relaxed bg-black/20 p-4 rounded-2xl border border-white/5">{rx.desc}</p>
+              <div className="space-y-3 mb-8">
+                <p className="text-[10px] font-bold text-current/60 uppercase tracking-widest px-1">{ageGroups.find(g=>g.id===age).label} 전용 처방</p>
+                {rx.rx.map((item, i) => (
+                  <div key={i} className="flex items-start gap-3 text-sm bg-white/5 p-3 rounded-xl border border-white/5">
+                    <span className="text-apple-blue font-bold">0{i+1}</span>
+                    <span className="font-medium">{item}</span>
+                  </div>
+                ))}
+              </div>
+              {isAdminNote && !contactSubmitted && (
+                <div className="mb-6 bg-black/40 p-5 rounded-2xl border border-apple-red/30 no-capture">
+                  <p className="text-xs text-white/80 mb-3 text-center leading-relaxed">
+                    전문가의 도움이 필요하신가요?<br/>연락처를 남겨주시면 센터 전문가가 연락을 드립니다.
+                  </p>
+                  <label className="flex items-start gap-2 text-left mb-4 opacity-80 cursor-pointer tap">
+                    <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} className="mt-0.5 accent-apple-red" />
+                    <span className="text-[10px] text-white/70 leading-tight">
+                      개인정보 수집 및 이용 동의<br/>
+                      <span className="opacity-50">(목적: 상담 연계 / 항목: 연락처 / 보유: 상담 완료 후 파기)</span>
+                    </span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    <input 
+                      type="text" 
+                      placeholder="성함 (예: 홍길동)" 
+                      value={contactName}
+                      onChange={e => setContactName(e.target.value)}
+                      className="bg-white/10 text-white placeholder-white/30 px-4 py-3 rounded-xl text-sm outline-none border border-white/10 focus:border-apple-red/50 transition-colors"
+                    />
+                    <input 
+                      type="number" 
+                      placeholder="나이 (예: 67)" 
+                      value={contactAge}
+                      onChange={e => setContactAge(e.target.value)}
+                      className="bg-white/10 text-white placeholder-white/30 px-4 py-3 rounded-xl text-sm outline-none border border-white/10 focus:border-apple-red/50 transition-colors"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <input 
+                      type="tel" 
+                      placeholder="연락처 (010-0000-0000)" 
+                      value={contact}
+                      onChange={e => setContact(e.target.value)}
+                      className="flex-1 bg-white/10 text-white placeholder-white/30 px-4 py-3 rounded-xl text-sm outline-none border border-white/10 focus:border-apple-red/50 transition-colors"
+                    />
+                    <button onClick={handleContactSubmit} className="bg-apple-red text-white font-bold px-4 rounded-xl text-sm whitespace-nowrap tap">
+                      신청
+                    </button>
+                  </div>
+                </div>
+              )}
+              {isAdminNote && contactSubmitted && (
+                <div className="mb-6 bg-apple-green/20 p-4 rounded-2xl border border-apple-green/30 text-center no-capture">
+                  <p className="text-apple-green text-sm font-bold flex items-center justify-center gap-2">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    상담 신청이 접수되었습니다!
+                  </p>
+                  <p className="text-[10px] text-apple-green/70 mt-1">담당자가 확인 후 연락드리겠습니다.</p>
+                </div>
+              )}
+
+              {isAdminNote && (
+                <a href="tel:0316372330" className="tap flex items-center justify-center gap-2 w-full py-4 mb-4 rounded-2xl bg-apple-red text-white font-bold shadow-lg no-capture">
+                  긴급 상담 바로 전화걸기
+                </a>
+              )}
+              
+              <div className="no-capture flex gap-2 w-full mb-3">
+                <button onClick={handleSaveImage} className="tap flex-1 py-4 rounded-2xl bg-white/20 border border-white/20 text-xs font-bold text-white shadow-lg">결과 저장하기</button>
+                <button onClick={reset} className="tap flex-1 py-4 rounded-2xl bg-white/10 border border-white/10 text-xs font-bold text-white/80">처음으로</button>
+              </div>
+
+              <a href="http://www.imhc.co.kr/selfcheck/adult.php" target="_blank" rel="noopener noreferrer" 
+                 className="no-capture tap flex items-center justify-center gap-2 w-full py-4 mb-8 rounded-2xl bg-apple-blue/20 border border-apple-blue/30 text-apple-blue text-xs font-bold shadow-lg transition-all hover:bg-apple-blue/30">
+                <span>추가 심리검사 해보기 (우울/불안 등)</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+              </a>
+
+              <div className="mt-6 border-t border-white/10 pt-6">
+                <p className="text-center text-xs font-bold text-white/80 mb-3">위기 대처 및 상담 안내</p>
+                <div className="space-y-2 text-[11px] text-white/60 bg-black/30 p-4 rounded-2xl">
+                  {isAdminNote && (
+                    <>
+                      <div className="flex justify-between items-center"><span className="text-apple-red font-medium">정신건강위기상담전화</span><a href="tel:1577-0199" className="font-bold underline tap text-white">1577-0199</a></div>
+                      <div className="flex justify-between items-center"><span className="text-apple-red font-medium">자살예방상담전화</span><a href="tel:109" className="font-bold underline tap text-white">109</a></div>
+                    </>
+                  )}
+                  {age === 'senior' && (
+                    <div className="flex justify-between items-center"><span className="text-apple-blue font-medium">노인전화상담</span><a href="tel:1588-7128" className="font-bold underline tap text-white">1588-7128</a></div>
+                  )}
+                  <div className="flex justify-between items-center"><span className="font-medium">이천시정신건강복지센터</span><a href="tel:031-637-2330" className="font-bold underline tap text-white">031-637-2330</a></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // ── 문항 화면 ──
+      const q = questions[step];
+      return (
+        <div className="h-[100dvh] w-full bg-apple-black flex flex-col justify-center px-4 py-8 overflow-y-auto overscroll-contain">
+          <div className="w-full max-w-xl flex flex-col">
+            <div className="text-center mb-10 shrink-0">
+              <div className="relative inline-block mb-2"><span className="text-4xl">🔬</span><div className="absolute -top-1 -right-1 w-3 h-3 bg-apple-blue rounded-full animate-ping"></div></div>
+              <h1 className="text-lg font-bold tracking-tight">심리 데이터 분석 중</h1>
+              <div className="mt-4 px-10">
+                <div className="h-[6px] bg-apple-surface rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-apple-blue to-apple-purple rounded-full transition-all duration-700 ease-out shadow-[0_0_12px_rgba(10,132,255,0.6)]"
+                    style={{width:`${((step + 1)/total)*100}%`}} />
+                </div>
+              </div>
+              <p className="text-[10px] text-apple-gray font-bold uppercase tracking-[0.2em] mt-3">문항 {step + 1} / {total}</p>
+            </div>
+
+            <div key={step} className="fade-up flex-1 flex flex-col justify-center mb-8">
+              <div className="bg-apple-surface/40 border border-apple-border rounded-[48px] overflow-hidden glass shadow-2xl relative">
+                <div className="relative flex items-center justify-center py-10">
+                  <div className={`${q.anim} relative z-10`}>
+                    <img src={q.img} alt={q.imgAlt} className="w-28 h-28 object-contain drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]" onError={e => { e.target.style.display = 'none'; e.target.nextSibling.classList.remove('hidden'); }} />
+                    <span className="text-8xl hidden">{q.icon}</span>
+                  </div>
+                  <div className="absolute top-6 left-6 flex items-center gap-2"><span className="text-[10px] font-black text-apple-blue bg-apple-blue/10 px-3 py-1 rounded-full border border-apple-blue/20">QUESTION {q.id}</span></div>
+                </div>
+                <div className="px-8 pb-4 text-center">
+                  <h3 className="text-xl font-bold leading-suuug mb-3">{q.text}</h3>
+                  <p className="text-sm text-apple-gray leading-relaxed max-w-[280px] mx-auto opacity-70 italic">"{q.hint}"</p>
+                </div>
+                <div className="px-5 pb-8 pt-2">
+                  <div className="flex flex-col gap-3">
+                    {options.map(opt => (
+                      <button key={opt.v} onClick={() => handlePick(q.id, opt.v)}
+                        className={"tap flex items-center justify-between p-4 rounded-xl border transition-all " + (answers[q.id] === opt.v ? "bg-apple-blue border-apple-blue text-white shadow-[0_8px_16px_rgba(10,132,255,0.4)] scale-[1.02] z-10" : "bg-white/5 border-white/5 text-apple-gray hover:bg-white/10")}>
+                        <div className="flex items-center gap-4">
+                          <span className="text-2xl">{opt.face}</span>
+                          <span className="text-[13px] font-semibold tracking-tight text-left leading-snug">{opt.label.replace('\n', ' ')}</span>
+                        </div>
+                        {opt.desc && <span className="text-[11px] opacity-60 font-medium">{opt.desc}</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-auto mb-6 shrink-0 flex items-center justify-between px-2">
+              <button onClick={() => step > 0 && setStep(s => s - 1)} disabled={step === 0} className={`flex items-center gap-2 text-sm font-bold transition-all ${step === 0 ? 'opacity-0 pointer-events-none' : 'text-apple-gray hover:text-white'}`}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                이전 문항
+              </button>
+              {isLast && answers[q.id] !== undefined && ( <button onClick={calculate} className="fade-up tap bg-apple-green text-black px-8 py-4 rounded-full font-black text-sm shadow-xl shadow-apple-green/30">진단 결과 확인하기</button> )}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
 </body>
 </html>
