@@ -12,6 +12,7 @@
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" as="style" crossorigin
     href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
   <script>
@@ -267,6 +268,12 @@
       return { ...base[level], ...db[level][age] };
     };
 
+    // TODO: 아래 YOUR_SUPABASE_URL을 실제 발급받은 프로젝트 정보(https://...supabase.co)로 변경하세요.
+    const supabaseUrl = 'https://ksavntmoxeirlvnasoog.supabase.co';
+    const supabaseKey = 'sb_publishable_BEWbEyewGiUZ5rsCkIx1CQ_USh-ymj_';
+    // supabaseUrl이 유효한 형식일 때만 초기화되도록 처리 (에러 방지)
+    const supabase = window.supabase && supabaseUrl.startsWith('http') ? window.supabase.createClient(supabaseUrl, supabaseKey) : null;
+
     const App = () => {
       const [view, setView] = useState('start'); // start, age, quiz, result, admin
       const [age, setAge] = useState(null);
@@ -280,11 +287,69 @@
       const [consent, setConsent] = useState(false);
       const adminClicks = useRef(0);
 
+      const [adminData, setAdminData] = useState(null);
+      const [isAdminLoading, setIsAdminLoading] = useState(false);
+
+      useEffect(() => {
+        if (view === 'admin') fetchAdminStats();
+      }, [view]);
+
+      const fetchAdminStats = async () => {
+        if (!supabase) {
+          // Supabase가 연결되지 않은 경우 로컬 데이터 페치
+          const statsStr = localStorage.getItem('stress_stats');
+          const defaultStats = { total: 0, levels: {}, ages: {}, daily: {}, contacts: [] };
+          setAdminData(statsStr ? { ...defaultStats, ...JSON.parse(statsStr) } : defaultStats);
+          return;
+        }
+
+        setIsAdminLoading(true);
+        try {
+          const [{ data: statsData, error: statsError }, { data: contactsData, error: contactsError }] = await Promise.all([
+            supabase.from('stress_stats').select('*'),
+            supabase.from('contacts').select('*').order('created_at', { ascending: false })
+          ]);
+
+          if (statsError) throw statsError;
+          if (contactsError) throw contactsError;
+
+          const defaultStats = { total: 0, levels: {}, ages: {}, daily: {}, contacts: [] };
+          const stats = { ...defaultStats };
+
+          stats.total = statsData.length;
+          statsData.forEach(item => {
+            const dateStr = item.created_at ? item.created_at.split('T')[0] : new Date().toISOString().split('T')[0];
+            stats.levels[item.level] = (stats.levels[item.level] || 0) + 1;
+            stats.ages[item.age_group] = (stats.ages[item.age_group] || 0) + 1;
+            stats.daily[dateStr] = (stats.daily[dateStr] || 0) + 1;
+          });
+
+          stats.contacts = contactsData.map(c => ({
+            date: c.created_at ? c.created_at.split('T')[0] : '',
+            name: c.name,
+            ageInForm: c.age,
+            phone: c.phone,
+            level: c.level,
+            ageGroup: c.age_group,
+            score: c.score
+          }));
+
+          setAdminData(stats);
+        } catch (err) {
+          console.error('Supabase fetch error:', err);
+          const statsStr = localStorage.getItem('stress_stats');
+          const defaultStats = { total: 0, levels: {}, ages: {}, daily: {}, contacts: [] };
+          setAdminData(statsStr ? { ...defaultStats, ...JSON.parse(statsStr) } : defaultStats);
+        } finally {
+          setIsAdminLoading(false);
+        }
+      };
+
       const answered = Object.keys(answers).length;
       const total = questions.length;
       const isLast = step === total - 1;
 
-      const saveStats = (level, ageGroup) => {
+      const saveStats = async (level, ageGroup) => {
         const stats = JSON.parse(localStorage.getItem('stress_stats') || '{"total":0, "levels":{}, "ages":{}, "daily":{}, "contacts":[]}');
         const today = new Date().toISOString().split('T')[0];
 
@@ -293,26 +358,69 @@
         stats.ages[ageGroup] = (stats.ages[ageGroup] || 0) + 1;
         stats.daily[today] = (stats.daily[today] || 0) + 1;
         localStorage.setItem('stress_stats', JSON.stringify(stats));
+
+        if (supabase) {
+          try {
+            await supabase.from('stress_stats').insert([{
+              level: level,
+              age_group: ageGroup
+            }]);
+          } catch (e) {
+            console.error('Supabase save error', e);
+          }
+        }
       };
 
-      const handleContactSubmit = () => {
+      const handleContactSubmit = async () => {
         if (!consent) return alert('개인정보 수집 및 이용에 동의해주세요.');
         if (!contactName || !contactAge) return alert('성함과 나이를 모두 입력해주세요.');
         if (!contact || contact.length < 10) return alert('정확한 연락처를 입력해주세요.');
+        
+        const ageLabel = ageGroups.find(g => g.id === age).label;
         const stats = JSON.parse(localStorage.getItem('stress_stats') || '{"total":0, "levels":{}, "ages":{}, "daily":{}, "contacts":[]}');
         const today = new Date().toISOString().split('T')[0];
         stats.contacts = stats.contacts || [];
         stats.contacts.push({
           date: today, name: contactName, ageInForm: contactAge, phone: contact,
-          level: result.level, ageGroup: ageGroups.find(g => g.id === age).label, score: result.score
+          level: result.level, ageGroup: ageLabel, score: result.score
         });
         localStorage.setItem('stress_stats', JSON.stringify(stats));
+
+        if (supabase) {
+          try {
+            await supabase.from('contacts').insert([{
+              name: contactName,
+              age: contactAge,
+              phone: contact,
+              level: result.level,
+              age_group: ageLabel,
+              score: result.score
+            }]);
+          } catch (e) {
+            console.error('Supabase contact save error', e);
+          }
+        }
+        
         setContactSubmitted(true);
       };
 
-      const resetAdminStats = () => {
-        if (confirm('모든 누적 통계 데이터 및 연락처 기록을 영구적으로 삭제하시겠습니까?')) {
+      const resetAdminStats = async () => {
+        if (confirm('모든 누적 통계 데이터 및 연락처 기록을 영구적으로 삭제하시겠습니까? (서버 데이터 포함)')) {
           localStorage.setItem('stress_stats', '{"total":0, "levels":{}, "ages":{}, "daily":{}, "contacts":[]}');
+          
+          if (supabase) {
+            try {
+              // Delete all records (depends on RLS policies, may fail if not allowed)
+              await supabase.from('stress_stats').delete().neq('id', 0);
+              await supabase.from('contacts').delete().neq('id', 0);
+              setAdminData({ total: 0, levels: {}, ages: {}, daily: {}, contacts: [] });
+            } catch (e) {
+              console.error('Supabase delete error', e);
+            }
+          } else {
+            setAdminData({ total: 0, levels: {}, ages: {}, daily: {}, contacts: [] });
+          }
+          
           setView('start');
           alert('초기화 되었습니다.');
         }
@@ -432,10 +540,19 @@
 
       // ── 관리자 화면 ──
       if (view === 'admin') {
-        const statsStr = localStorage.getItem('stress_stats');
-        const defaultStats = { total: 0, levels: {}, ages: {}, daily: {}, contacts: [] };
-        const stats = statsStr ? { ...defaultStats, ...JSON.parse(statsStr) } : defaultStats;
+        const stats = adminData || { total: 0, levels: {}, ages: {}, daily: {}, contacts: [] };
         const levelMap = { 'very_low': '최상 안정', 'low': '안정 단계', 'moderate': '주의 단계', 'high': '위험 단계', 'high_danger': '고위험군' };
+
+        if (isAdminLoading) {
+          return (
+            <div className="min-h-[100dvh] w-full flex flex-col px-6 py-12 pb-32">
+              <div className="fade-up w-full max-w-md mx-auto my-auto text-center glass border-2 border-apple-border rounded-[48px] p-10 shadow-2xl">
+                <div className="animate-spin text-4xl mb-6">⏳</div>
+                <h2 className="text-xl font-black text-apple-gray">서버에서 데이터 불러오는 중...</h2>
+              </div>
+            </div>
+          );
+        }
 
         return (
           <div className="min-h-[100dvh] w-full flex flex-col px-6 py-12 pb-32">
@@ -558,9 +675,9 @@
                   </p>
                   <label className="flex items-start gap-3 text-left mb-6 opacity-80 cursor-pointer tap">
                     <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} className="mt-1 accent-apple-red w-4 h-4" />
-                    <span className="text-[11px] text-apple-gray/70 font-semibold leading-tight">
+                    <span className="text-[14px] text-apple-gray/70 font-semibold leading-tight">
                       개인정보 수집 및 이용 동의 (필수)<br />
-                      <span className="opacity-50 text-[10px] font-medium">(목적: 상담 연계 / 항목: 성함, 나이, 연락처 / 보유기간: 상담 완료 후 즉시 파기)</span>
+                      <span className="opacity-50 text-[12px] font-medium">(목적: 상담 연계 / 항목: 성함, 나이, 연락처 / 보유기간: 상담 완료 후 즉시 파기)</span>
                     </span>
                   </label>
                   <div className="grid grid-cols-2 gap-3 mb-3">
@@ -579,7 +696,7 @@
                       className="bg-white text-apple-gray placeholder-apple-gray/30 px-5 py-4 rounded-2xl text-sm outline-none border-2 border-apple-border focus:border-apple-blue transition-all font-bold shadow-sm"
                     />
                   </div>
-                  <div className="flex gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3">
                     <input
                       type="tel"
                       placeholder="연락처 (010-0000-0000)"
@@ -587,7 +704,7 @@
                       onChange={e => setContact(e.target.value)}
                       className="flex-1 bg-white text-apple-gray placeholder-apple-gray/30 px-5 py-4 rounded-2xl text-sm outline-none border-2 border-apple-border focus:border-apple-blue transition-all font-bold shadow-sm"
                     />
-                    <button onClick={handleContactSubmit} className="bg-apple-red text-white font-black px-6 rounded-2xl text-sm whitespace-nowrap tap shadow-lg shadow-apple-red/20">
+                    <button onClick={handleContactSubmit} className="bg-apple-red text-white font-black px-6 py-4 rounded-2xl text-sm whitespace-nowrap tap shadow-lg shadow-apple-red/20">
                       신청하기
                     </button>
                   </div>
