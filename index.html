@@ -295,61 +295,12 @@
       }, [view]);
 
       const fetchAdminStats = async () => {
-        // --- 모의 데이터 생성 함수 ---
-        const generateMockData = () => {
-          const stats = [];
-          const contacts = [];
-          const levels = ['very_low', 'low', 'moderate', 'high', 'high_danger'];
-          const ageIds = ['teen', 'young', 'middle', 'senior'];
-          const names = ['김철수', '이영희', '박지민', '최성훈', '정다은', '한지우', '강현우', '윤서아', '임준호', '송미경', '오지훈', '배수진'];
-          
-          for (let i = 0; i < 203; i++) {
-            const ageGroup = ageIds[Math.floor(Math.random() * ageIds.length)];
-            const level = levels[Math.floor(Math.random() * levels.length)];
-            const date = new Date(Date.now() - Math.random() * 1000000000).toISOString();
-            stats.push({ level, age_group: ageGroup, created_at: date });
-
-            if (Math.random() < 0.15) {
-              contacts.push({
-                name: names[Math.floor(Math.random() * names.length)],
-                age: Math.floor(Math.random() * 50) + 15,
-                phone: `010-${Math.floor(Math.random() * 9000 + 1000)}-${Math.floor(Math.random() * 9000 + 1000)}`,
-                level,
-                age_group: ageGroup,
-                score: Math.floor(Math.random() * 42),
-                created_at: date
-              });
-            }
-          }
-          return { stats, contacts };
-        };
-
         setIsAdminLoading(true);
-        const { stats: mockStats, contacts: mockContacts } = generateMockData();
-        
-        // 로컬 데이터 먼저 불러오기 (기본값)
-        const statsStr = localStorage.getItem('stress_stats');
-        const local = statsStr ? JSON.parse(statsStr) : { total: 0, levels: {}, ages: {}, daily: {}, contacts: [] };
         
         // 최종 합산용 객체 초기화
         const finalStats = { total: 0, levels: {}, ages: {}, daily: {}, contacts: [] };
 
-        // 1. 모의 데이터 합산
-        mockStats.forEach(item => {
-          const d = item.created_at.split('T')[0];
-          finalStats.levels[item.level] = (finalStats.levels[item.level] || 0) + 1;
-          finalStats.ages[item.age_group] = (finalStats.ages[item.age_group] || 0) + 1;
-          finalStats.daily[d] = (finalStats.daily[d] || 0) + 1;
-        });
-        finalStats.total = mockStats.length;
-        finalStats.contacts = mockContacts.map(c => ({
-          date: c.created_at.split('T')[0],
-          name: c.name, ageInForm: c.age, phone: c.phone,
-          level: c.level, ageGroup: ageGroups.find(g => g.id === c.age_group)?.label || '',
-          score: c.score
-        }));
-
-        // 2. 서버 데이터 시도
+        // 1. 서버 데이터 시도
         if (supabase) {
           try {
             const [{ data: sData, error: sErr }, { data: cData, error: cErr }] = await Promise.all([
@@ -361,7 +312,7 @@
             if (cErr) throw cErr;
 
             if (sData) {
-              finalStats.total += sData.length;
+              finalStats.total = sData.length;
               sData.forEach(item => {
                 const d = item.created_at ? item.created_at.split('T')[0] : new Date().toISOString().split('T')[0];
                 finalStats.levels[item.level] = (finalStats.levels[item.level] || 0) + 1;
@@ -370,24 +321,29 @@
               });
             }
             if (cData) {
-              const mapped = cData.map(c => ({
+              finalStats.contacts = cData.map(c => ({
                 date: c.created_at ? c.created_at.split('T')[0] : '',
                 name: c.name, ageInForm: c.age, phone: c.phone,
                 level: c.level, ageGroup: ageGroups.find(g => g.id === c.age_group)?.label || c.age_group || '',
                 score: c.score
               }));
-              finalStats.contacts = [...mapped, ...finalStats.contacts];
             }
           } catch (err) {
             console.error('Supabase fetch error:', err);
-            // 서버 실패 시 로컬 데이터만이라도 추가 병합
-            finalStats.total += local.total;
-            // ... (로컬 병합 로직 생략 가능 - 어차피 로컬은 자기 브라우저에만 있음)
+            // 서버 실패 시 로컬 데이터 연동 (백업)
+            const statsStr = localStorage.getItem('stress_stats');
+            if (statsStr) {
+              const local = JSON.parse(statsStr);
+              Object.assign(finalStats, local);
+            }
           }
         } else {
-          // 서버 미연결 시 로컬 데이터 합산
-          finalStats.total += local.total;
-          // (필요 시 로컬 데이터 상세 병합 추가)
+          // 서버 미연결 시 로컬 데이터만 표시
+          const statsStr = localStorage.getItem('stress_stats');
+          if (statsStr) {
+            const local = JSON.parse(statsStr);
+            Object.assign(finalStats, local);
+          }
         }
 
         setAdminData(finalStats);
