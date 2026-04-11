@@ -306,8 +306,8 @@
         setIsAdminLoading(true);
         try {
           const [{ data: statsData, error: statsError }, { data: contactsData, error: contactsError }] = await Promise.all([
-            supabase.from('stress_stats').select('*'),
-            supabase.from('contacts').select('*').order('created_at', { ascending: false })
+            supabase.from('healt').select('*'),
+            supabase.from('conteacts').select('*').order('created_at', { ascending: false })
           ]);
 
           if (statsError) throw statsError;
@@ -361,7 +361,7 @@
 
         if (supabase) {
           try {
-            await supabase.from('stress_stats').insert([{
+            await supabase.from('healt').insert([{
               level: level,
               age_group: ageGroup
             }]);
@@ -388,7 +388,7 @@
 
         if (supabase) {
           try {
-            await supabase.from('contacts').insert([{
+            await supabase.from('conteacts').insert([{
               name: contactName,
               age: contactAge,
               phone: contact,
@@ -411,8 +411,8 @@
           if (supabase) {
             try {
               // Delete all records (depends on RLS policies, may fail if not allowed)
-              await supabase.from('stress_stats').delete().neq('id', 0);
-              await supabase.from('contacts').delete().neq('id', 0);
+              await supabase.from('healt').delete().neq('id', 0);
+              await supabase.from('conteacts').delete().neq('id', 0);
               setAdminData({ total: 0, levels: {}, ages: {}, daily: {}, contacts: [] });
             } catch (e) {
               console.error('Supabase delete error', e);
